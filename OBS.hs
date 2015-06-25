@@ -54,13 +54,6 @@ findDevelProject auth pkg = do
         | isDevel e = [(attrVal (attrs !! 0), attrVal (attrs !! 1))]
         | otherwise = concatMap find content
 
-
--- <binary name="rpcbind" project="network" package="rpcbind"
--- repository="openSUSE_Tumbleweed*" version="0.2.3" release="74.4" arch="i586"
--- filename="rpcbind-0.2.3-74.4.i586.rpm"
--- filepath*="network/openSUSE_Tumbleweed/i586/rpcbind-0.2.3-74.4.i586.rpm"
--- baseproject="openSUSE:Factor*y" type="rpm" />
-
 mkAttrKey :: String -> QName
 mkAttrKey k = QName k Nothing Nothing
 
@@ -102,27 +95,3 @@ getRpmRoute auth pkg = (mkUrl =<<) . listToMaybe . filter pred <$> findRpms auth
         prj <- getProject e
         fn  <- getFileName e
         return $ "/build/" ++ prj ++ "/" ++ repository ++ "/" ++ arch ++ "/" ++ pkg ++ "/" ++ fn
-
--- https://build.opensuse.org/build/network/openSUSE_Tumbleweed/x86_64/rpcbind/rpcbind-0.2.3-74.4.x86_64.rpm
-
-
-
--- showAttr (Attr k v) = qName k ++ "=\"" ++ v ++ "\""
--- showStuff (Elem (Element n as c _)) =
---     "<" ++ qName n ++ " " ++ (unwords $ map showAttr as) ++ " />"
--- -- showStuff (Elem (Element n as c _)) = qName n ++ "\n" ++ (unlines $ map showAttr as)
--- showStuff _ = ""
-
--- rpmUrl :: (ProjectName, PackageName) -> Url
--- rpmUrl (prj, pkg) = obsApiUrl
---                  ++ "/build/" ++ prj ++ "/openSUSE_Tumbleweed/x86_64/"
---                  ++ pkg ++ "/rpcbind-0.2.3-74.4.x86_64.rpm"
-
-
--- https://www.archlinux.org/packages/core/x86_64/rpcbind/files/json/
--- https://build.opensuse.org/build/network/openSUSE_Tumbleweed/x86_64/rpcbind/rpcbind-0.2.3-74.4.x86_64.rpm
-
--- search packages:
--- read user; read password; echo $user:$password; \
--- curl --user $user:$password \
---      -XGET "https://api.opensuse.org/search/package?match=@name='rpcbind'"

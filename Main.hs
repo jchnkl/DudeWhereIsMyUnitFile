@@ -49,12 +49,6 @@ packagesPkgs = pkgList p_pkg_path
 susePkgs :: IO [Pkg]
 susePkgs = pkgList s_pkg_path
 
--- getPkgName :: PkgPath -> IO Pkg
--- getPkgName fp = 
-
--- foo :: Pkg -> String
--- foo (Pkg n _) = n ++ ".service"
-
 locateServiceFiles :: Pkg -> IO [FilePath]
 locateServiceFiles (Pkg n p) = do
     cs <- D.getDirectoryContents (p </> n)
@@ -76,25 +70,6 @@ getPackages = do
 
 filterWithServiceFile :: [Pkg] -> IO [Pkg]
 filterWithServiceFile = filterM hasServiceFile
-
--- main :: IO ()
--- main = do
---     unlines . L.nub <$> serviceFiles >>= writeFile "/tmp/serviceFiles.txt"
---     where serviceFiles = communityPkgs >>= fmap concat . mapM locateServiceFiles
-
--- https://www.archlinux.org/packages/core/x86_64/rpcbind/files/json/
--- https://build.opensuse.org/build/network/openSUSE_Tumbleweed/x86_64/rpcbind/rpcbind-0.2.3-74.4.x86_64.rpm
-
--- search packages:
--- read user; read password; echo $user:$password; \
--- curl --user $user:$password \
---      -XGET "https://api.opensuse.org/search/package?match=@name='rpcbind'"
-
--- main :: IO ()
--- main = do
---     args <- getArgs
---     print args
---     rpmFileList (head args) >>= putStrLn . unlines
 
 main :: IO ()
 main = do
