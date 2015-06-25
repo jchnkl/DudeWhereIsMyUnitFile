@@ -25,6 +25,11 @@ executable service-disaster
                      , directory
                      , hashable
                      , unordered-containers
+                     , bytestring
+                     , http-client
+                     , http-client-tls
+                     , xml
+
   -- hs-source-dirs:      
   -- extra-libraries:   rpm
   default-language:    Haskell2010
