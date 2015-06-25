@@ -8,6 +8,7 @@ import System.FilePath.Posix ((</>))
 import qualified System.Directory as D
 
 import Rpm
+import OBS
 
 type PkgName = String
 type PkgPath = FilePath
@@ -81,8 +82,30 @@ filterWithServiceFile = filterM hasServiceFile
 --     unlines . L.nub <$> serviceFiles >>= writeFile "/tmp/serviceFiles.txt"
 --     where serviceFiles = communityPkgs >>= fmap concat . mapM locateServiceFiles
 
+-- https://www.archlinux.org/packages/core/x86_64/rpcbind/files/json/
+-- https://build.opensuse.org/build/network/openSUSE_Tumbleweed/x86_64/rpcbind/rpcbind-0.2.3-74.4.x86_64.rpm
+
+-- search packages:
+-- read user; read password; echo $user:$password; \
+-- curl --user $user:$password \
+--      -XGET "https://api.opensuse.org/search/package?match=@name='rpcbind'"
+
+-- main :: IO ()
+-- main = do
+--     args <- getArgs
+--     print args
+--     rpmFileList (head args) >>= putStrLn . unlines
+
 main :: IO ()
 main = do
     args <- getArgs
-    print args
-    rpmFileList (head args) >>= putStrLn . unlines
+    guard $ length args == 3
+    let username = args !! 0
+        password = args !! 1
+        package  = args !! 2
+
+    mroute <- getRpmRoute (basicAuth username password) package
+    case mroute of
+        Nothing    -> print $ "Couldn't find rpm for " ++ package
+        Just route -> let url = obsApiAuthUrl username password ++ "/" ++ route
+                      in rpmFileList url >>= putStrLn . unlines
