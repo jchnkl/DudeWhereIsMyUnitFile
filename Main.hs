@@ -8,7 +8,8 @@ import System.FilePath.Posix ((</>))
 import qualified System.Directory as D
 
 import Rpm
-import OBS
+import qualified OBS as OBS
+import qualified Arch as Arch
 
 type PkgName = String
 type PkgPath = FilePath
@@ -79,8 +80,8 @@ main = do
         password = args !! 1
         package  = args !! 2
 
-    mroute <- getRpmRoute (basicAuth username password) package
+    mroute <- OBS.getRpmRoute (OBS.basicAuth username password) package
     case mroute of
         Nothing    -> print $ "Couldn't find rpm for " ++ package
-        Just route -> let url = obsApiAuthUrl username password ++ "/" ++ route
+        Just route -> let url = OBS.obsApiAuthUrl username password ++ "/" ++ route
                       in rpmFileList url >>= putStrLn . unlines
