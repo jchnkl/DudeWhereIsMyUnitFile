@@ -29,6 +29,8 @@ executable service-disaster
                      , http-client
                      , http-client-tls
                      , xml
+                     , time
+                     , aeson
 
   -- hs-source-dirs:      
   -- extra-libraries:   rpm
