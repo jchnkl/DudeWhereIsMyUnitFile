@@ -1,4 +1,4 @@
-module Common where
+module Common.Types where
 
 type Url = String
 type Route = String

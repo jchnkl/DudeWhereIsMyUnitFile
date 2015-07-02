@@ -15,7 +15,7 @@ import qualified Text.XML.Light as X
 
 import Debug.Trace
 
-import Common
+import Common.Types
 
 type Auth = Request -> Request
 

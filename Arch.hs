@@ -20,7 +20,7 @@ import Data.Aeson.TH
 
 import Data.Time.Clock (UTCTime)
 
-import Common
+import Common.Types
 
 data Pkg = Pkg
     { pkgdesc :: String
