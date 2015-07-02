@@ -7,6 +7,8 @@ import Data.Word
 import Data.Maybe
 import Control.Monad
 import Control.Applicative
+import Control.Monad.IO.Class
+import Data.ByteString (ByteString)
 import qualified Data.ByteString as B
 
 import Network.HTTP.Client (Request)
@@ -131,16 +133,10 @@ searchUrl s = case s of
     Description n ps -> url ++ "?desc=" ++ n ++ urlParams ps
     where url = archApiUrl ++ "/search/json/"
 
-search s = do
-    request >>= \req -> do
-        H.withManager T.tlsManagerSettings $ \mgr -> do
-            -- concat . maybeToList . fmap results . decodeStrict . B.concat
-            -- decodeStrict . B.concat
-            B.concat
-                <$> H.withResponse req mgr (H.brConsume . H.responseBody)
-    where
-    -- toResult :: ByteString -> SearchResult
-    -- toResult = 
-    request = H.parseUrl $ searchUrl s
+apiCall :: MonadIO m => Url -> m ByteString
+apiCall url = liftIO $ H.parseUrl url >>= \req -> do
+    H.withManager T.tlsManagerSettings $ \mgr -> do
+        B.concat <$> H.withResponse req mgr (H.brConsume . H.responseBody)
 
-
+search :: (Functor m, MonadIO m) => Search -> m (Maybe SearchResult)
+search s = decodeStrict <$> apiCall (searchUrl s)
