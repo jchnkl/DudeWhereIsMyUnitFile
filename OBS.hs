@@ -15,13 +15,9 @@ import qualified Text.XML.Light as X
 
 import Debug.Trace
 
+import Common
+
 type Auth = Request -> Request
-type Url = String
-type Route = String
-type UserName = String
-type Password = String
-type ProjectName = String
-type PackageName = String
 
 obsApiUrl :: Url
 obsApiUrl = "https://api.opensuse.org"

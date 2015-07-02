@@ -20,6 +20,7 @@ import Data.Aeson.TH
 
 import Data.Time.Clock (UTCTime)
 
+import Common
 
 data Pkg = Pkg
     { pkgdesc :: String
@@ -63,8 +64,6 @@ $(deriveJSON defaultOptions ''SearchResult)
 -- https://www.archlinux.org/packages/search/json/?name=
 archApiUrl :: String
 archApiUrl = "https://www.archlinux.org/packages"
-
-type Url = String
 
 data Repository = Core
                 | Extra
