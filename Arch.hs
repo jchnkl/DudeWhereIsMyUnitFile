@@ -19,20 +19,13 @@ import Data.Aeson
 import Data.Aeson.TH
 
 import Data.Time.Clock (UTCTime)
--- import System.Locale (defaultTimeLocale)
 
--- data MyTime = MyTime UTCTime
-    -- deriving (Eq, Ord, Read, Show)
-
--- instance Read MyTime
 
 data Pkg = Pkg
     { pkgdesc :: String
     , depends :: [String]
     , licenses :: [String]
-    -- , last_update :: "2015-05-02T09:48:14.746Z",
     , last_update :: UTCTime
-    -- , build_date :: "2015-04-27T18:16:35Z",
     , build_date :: UTCTime
     , compressed_size :: Word
     , installed_size :: Word
@@ -51,7 +44,6 @@ data Pkg = Pkg
     , url :: String
     , pkgbase :: String
     , pkgrel :: String
-    -- "flagdate": "2013-07-03T06:46:29.620Z"
     , flag_date :: Maybe UTCTime
     }
     deriving (Eq, Ord, Read, Show)
@@ -140,8 +132,6 @@ searchUrl s = case s of
     Description n ps -> url ++ "?desc=" ++ n ++ urlParams ps
     where url = archApiUrl ++ "/search/json/"
 
--- search :: Search -> IO [Pkg]
--- search :: Search -> IO (Maybe SearchResult)
 search s = do
     request >>= \req -> do
         H.withManager T.tlsManagerSettings $ \mgr -> do
@@ -155,116 +145,3 @@ search s = do
     request = H.parseUrl $ searchUrl s
 
 
--- class SearchRequestClass a where
---     searchRequest
-
--- mkSearchRequest :: String -> SearchRequest
--- mkSearchRequest query
--- /search/json/?name=
-
--- searchPkg :: String -> IO PkgSearchReply
--- searchPkg pkg = do
---     sendRequest >>= \request -> do
---         H.withManager T.tlsManagerSettings $ \manager -> do
---             H.withResponse request manager processResponse
---
---     where
---     searchUrl = "/search/package?match=@name='" ++ pkg ++ "'"
---
---     sendRequest = auth <$> H.parseUrl (obsApiUrl ++ searchUrl)
---
---     processResponse r = concatMap find . X.parseXML . B.concat
---                         <$> H.brConsume (H.responseBody r)
---
---     isDevel (Element qn as _ _) = qName qn == "devel" && length as == 2
---
---     find (Text _) = []
---     find (CRef _) = []
---     find (Elem e@(Element _ attrs content _))
---         | isDevel e = [(attrVal (attrs !! 0), attrVal (attrs !! 1))]
---         | otherwise = concatMap find content
-
--- import Debug.Trace
-
--- type Auth = Request -> Request
--- type Url = String
--- type Route = String
--- type UserName = String
--- type Password = String
--- type ProjectName = String
--- type PackageName = String
-
-
-
--- obsApiUrl :: Url
--- obsApiUrl = "https://api.opensuse.org"
---
--- obsApiAuthUrl :: UserName -> Password -> Url
--- obsApiAuthUrl u p = "https://" ++ u ++ ":" ++ p ++ "@" ++ "api.opensuse.org"
---
--- basicAuth :: UserName -> Password -> Auth
--- basicAuth u p = H.applyBasicAuth (B.pack u) (B.pack p)
---
--- findDevelProject :: Auth -> PackageName -> IO [(ProjectName, PackageName)]
--- findDevelProject auth pkg = do
---     sendRequest >>= \request -> do
---         H.withManager T.tlsManagerSettings $ \manager -> do
---             H.withResponse request manager processResponse
---
---     where
---     searchUrl = "/search/package?match=@name='" ++ pkg ++ "'"
---
---     sendRequest = auth <$> H.parseUrl (obsApiUrl ++ searchUrl)
---
---     processResponse r = concatMap find . X.parseXML . B.concat
---                         <$> H.brConsume (H.responseBody r)
---
---     isDevel (Element qn as _ _) = qName qn == "devel" && length as == 2
---
---     find (Text _) = []
---     find (CRef _) = []
---     find (Elem e@(Element _ attrs content _))
---         | isDevel e = [(attrVal (attrs !! 0), attrVal (attrs !! 1))]
---         | otherwise = concatMap find content
---
--- mkAttrKey :: String -> QName
--- mkAttrKey k = QName k Nothing Nothing
---
--- filterByAttr :: (Attr -> Bool) -> [Element] -> [Element]
--- filterByAttr _ [] = []
--- filterByAttr pred (e@(Element _ attrs _ _):elems)
---     | any pred attrs = e : filterByAttr pred elems
---     | otherwise      = filterByAttr pred elems
---
--- findRpms :: Auth -> PackageName -> IO [Element]
--- findRpms auth pkg = H.withManager T.tlsManagerSettings $ \manager -> do
---     auth <$> H.parseUrl url >>= \request -> do
---         H.withResponse request manager process
---     where
---     url = obsApiUrl ++ "/search/published/binary/id?match=@name='" ++ pkg ++ "'"
---     collectionElements = concatMap (X.onlyElems . elContent) . X.onlyElems
---     process = fmap (collectionElements . X.parseXML . B.concat)
---             . H.brConsume . H.responseBody
---
--- isArch :: String -> Element -> Bool
--- isArch arch = any ((arch==) . attrVal) . elAttribs
---
--- isRepository :: String -> Element -> Bool
--- isRepository repository = any ((repository==) . attrVal) . elAttribs
---
--- getFileName :: Element -> Maybe FilePath
--- getFileName = X.findAttr (mkAttrKey "filename")
---
--- getProject :: Element -> Maybe ProjectName
--- getProject = X.findAttr (mkAttrKey "project")
---
--- getRpmRoute :: Auth -> PackageName -> IO (Maybe Route)
--- getRpmRoute auth pkg = (mkUrl =<<) . listToMaybe . filter pred <$> findRpms auth pkg
---     where
---     arch = "x86_64"
---     repository = "openSUSE_Factory"
---     pred e = isArch arch e && isRepository repository e
---     mkUrl e = do
---         prj <- getProject e
---         fn  <- getFileName e
---         return $ "/build/" ++ prj ++ "/" ++ repository ++ "/" ++ arch ++ "/" ++ pkg ++ "/" ++ fn
