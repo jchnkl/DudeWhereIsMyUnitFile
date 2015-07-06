@@ -5,9 +5,10 @@ module OBS where
 import Data.Maybe
 import Control.Monad
 import Control.Applicative
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Maybe
 import qualified Data.ByteString.Char8 as B
 
-import Network.HTTP.Client (Request)
 import qualified Network.HTTP.Client as H
 import qualified Network.HTTP.Client.TLS as T
 import Text.XML.Light.Types
@@ -15,18 +16,15 @@ import qualified Text.XML.Light as X
 
 import Debug.Trace
 
+import Common.HTTP
 import Common.Types
-
-type Auth = Request -> Request
+import Common.Functions
 
 obsApiUrl :: Url
 obsApiUrl = "https://api.opensuse.org"
 
 obsApiAuthUrl :: UserName -> Password -> Url
 obsApiAuthUrl u p = "https://" ++ u ++ ":" ++ p ++ "@" ++ "api.opensuse.org"
-
-basicAuth :: UserName -> Password -> Auth
-basicAuth u p = H.applyBasicAuth (B.pack u) (B.pack p)
 
 findDevelProject :: Auth -> PackageName -> IO [(ProjectName, PackageName)]
 findDevelProject auth pkg = do
