@@ -26,11 +26,26 @@ executable service-disaster
                      , hashable
                      , unordered-containers
                      , bytestring
+                     , http-types
                      , http-client
                      , http-client-tls
                      , xml
                      , time
+                     , text
                      , aeson
+                     , clock
+                     , formatting
+                     , old-locale
+                     , exceptions
+                     , mtl
+                     , transformers
+                     , tar
+                     , unix
+                     , monad-control
+                     , resourcet
+                     , conduit
+                     , conduit-combinators
+                     , lzma-conduit
 
   -- hs-source-dirs:      
   -- extra-libraries:   rpm
