@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
 
 -- module ArchPkgReader where
@@ -100,11 +101,20 @@ isUnitFile :: Entry -> Bool
 isUnitFile fp = isPrefixOf "usr/lib/systemd" p && isSuffixOf ".service" p
     where p = Tar.entryPath fp
 
-hasUnitFiles :: FilePath -> IO Bool
-hasUnitFiles = fmap (foldr (||) False . map isUnitFile . toEntryList) . readPkgEntries
+-- hasUnitFiles :: FilePath -> IO Bool
+-- hasUnitFiles = fmap (foldr (||) False . map isUnitFile . toEntryList) . readPkgEntries
+
+isTar :: FilePath -> Bool
+isTar = isSuffixOf ".tar"
+
+isGz :: FilePath -> Bool
+isGz = isSuffixOf ".gz"
+
+isLzma :: FilePath -> Bool
+isLzma = isSuffixOf ".xz"
 
 filterLzma :: [FilePath] -> [FilePath]
-filterLzma = filter (isSuffixOf ".xz")
+filterLzma = filter isLzma
 
 maxSize :: Int
 maxSize = 1
@@ -112,23 +122,69 @@ maxSize = 1
 isSmallerThan :: FileOffset -> FilePath -> IO Bool
 isSmallerThan n = fmap ((n >) . fileSize) . getFileStatus
 
-unitFileCheck :: FilePath -> IO Bool
-unitFileCheck fp = isSmallerThan (fromIntegral maxSize * 1024 * 1024) fp >>= \b -> do
-    if b then hasUnitFiles fp
-         else return b
+-- isUnitFile :: Entry -> Bool
+-- isUnitFile = Tar.entryPath
+
+-- unitFileCheck :: FilePath -> IO Bool
+-- unitFileCheck fp = isSmallerThan (fromIntegral maxSize * 1024 * 1024) fp >>= \b -> do
+--     if b then hasUnitFiles fp
+--          else return b
+
+type Limit = Int
+
+unpack :: FilePath -> IO (Entries FormatError)
+unpack fp = decomp >>= return . Tar.read
+    where
+    decomp | isTar  fp = BL.readFile fp
+           | isGz   fp = return "" -- fail "FIXME: implement GZ support"
+           | isLzma fp = readLzma fp
+           | otherwise = return ""
+
+-- packageContents :: FilePath -> IO (Entries e)
+-- findPackage (pkg:pkgs)
+--     | isTar pkg  =
+--     | isGz pkg   =
+--     | isLzma pkg = readPkgEntries pkg
+
+findPackages :: (Entries FormatError -> IO Bool) -> [FilePath] -> IO [FilePath]
+-- findPackages f = filterM ((f =<<) . unpack)
+findPackages f = find []
+    -- unpack fp >>= f >>= \b
+
+    where
+    find acc [] = return acc
+    find acc (fp:fps) =
+        unpack fp >>= f >>= \b -> if b then find (fp:acc) fps else find acc fps
+    -- mapM (\fp -> f fp >>= \b -> when b $ return fp)
+
+-- filterLzma <$> Tar.getDirectoryContentsRecursive base
+--     >>= mapM (\fp -> unitFileCheck fp >>= \b -> when b $ IO.hPutStrLn IO.stderr fp)
+
+matchUnitFiles :: Entries FormatError -> IO Bool
+matchUnitFiles = return
+               . foldr (||) False
+               -- . map isUnitFile
+               -- . Tar.foldEntries ((:[]) . Tar.entryPath) [] (const [])
+               . Tar.foldEntries ((:) . isUnitFile) [] (const [])
 
 main :: IO ()
 main = do
     args <- getArgs
 
     let base = (args !! 0)
+
+    map (base </>) <$> Tar.getDirectoryContentsRecursive base
+        >>= filterM (isSmallerThan (fromIntegral maxSize * 1024 * 1024))
+        >>= findPackages matchUnitFiles
+        >>= mapM_ (IO.hPutStrLn IO.stderr)
+
     -- (map (showEither id (Tar.fromTarPath . Tar.entryTarPath)) . getEntries)
     --     <$> readPkgEntries (args !! 0) >>= print
 
-    map (base </>) . filterLzma <$> Tar.getDirectoryContentsRecursive base
-        -- >>= filterM (isSmallerThan (10 * 1024 * 1024))
-        -- >>= filterM unitFileCheck >>= IO.hPutStrLn IO.stderr . unlines
-        >>= mapM (\fp -> unitFileCheck fp >>= \b -> when b $ IO.hPutStrLn IO.stderr fp)
+    -- map (base </>) . filterLzma <$> Tar.getDirectoryContentsRecursive base
+    --     -- >>= filterM (isSmallerThan (10 * 1024 * 1024))
+    --     -- >>= filterM unitFileCheck >>= IO.hPutStrLn IO.stderr . unlines
+    --     >>= mapM (\fp -> unitFileCheck fp >>= \b -> when b $ IO.hPutStrLn IO.stderr fp)
 
         -- >>= mapM_ (\fp -> hasUnitFiles fp >>= \b -> when b $ IO.hPutStrLn IO.stderr fp)
         -- >>= mapM_ (\fp -> IO.hPutStrLn IO.stderr fp >> readPkgEntries fp)
