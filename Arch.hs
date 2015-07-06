@@ -11,7 +11,7 @@ import Control.Monad.IO.Class
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as B
 
-import Network.HTTP.Client (Request)
+import Control.Exception (SomeException, catch)
 import qualified Network.HTTP.Client as H
 import qualified Network.HTTP.Client.TLS as T
 -- import Text.XML.Light.Types
@@ -180,10 +180,19 @@ searchUrl s = case s of
     Description n ps -> url ++ "?desc=" ++ n ++ urlParams ps
     where url = archApiUrl ++ "/search/json/"
 
-apiCall :: MonadIO m => Url -> m ByteString
-apiCall url = liftIO $ H.parseUrl url >>= \req -> do
-    H.withManager T.tlsManagerSettings $ \mgr -> do
-        B.concat <$> H.withResponse req mgr (H.brConsume . H.responseBody)
+apiCall :: MonadIO m => Url -> m (Maybe ByteString)
+apiCall url = liftIO $ flip catch handleException $ do
+    H.parseUrl url >>= \req -> do
+        H.withManager T.tlsManagerSettings $ \mgr -> do
+            H.withResponse req mgr handleResponse
+    where
+    handleResponse = fmap (Just . B.concat) . H.brConsume . H.responseBody
+    handleException :: Monad m => SomeException -> m (Maybe ByteString)
+    handleException _ = return Nothing
 
-search :: (Functor m, MonadIO m) => Search -> m (Maybe SearchResult)
-search s = decodeStrict <$> apiCall (searchUrl s)
+search :: (Functor m, MonadIO m) => Search -> m (Maybe SearchReply)
+search s = join . fmap decodeStrict <$> apiCall (searchUrl s)
+
+files :: (Functor m, MonadIO m) => Repository -> Architecture -> PackageName -> m (Maybe FilesReply)
+files repo arch pkg = join . fmap decodeStrict <$> apiCall url
+    where url = archApiUrl </> show repo </> show arch </> pkg </> "files/json/"
