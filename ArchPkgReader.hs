@@ -1,3 +1,7 @@
+-- ghc -O2 \
+-- -package-db /home/jkeil/.cabal-sandbox/x86_64-linux-ghc-7.8.4-packages.conf.d \
+-- --make ArchPkgReader.hs
+
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
 
