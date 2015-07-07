@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Common.HTTP where
+module Common.Http where
 
 import Data.Maybe
 import Control.Applicative

@@ -21,7 +21,7 @@ import Formatting.Formatters
 import System.Clock (Clock(..), TimeSpec(..))
 import qualified System.Clock as C
 
-import Common.HTTP
+import Common.Http
 import Common.Types hiding ((</>))
 import Common.Functions
 import qualified Rpm as R

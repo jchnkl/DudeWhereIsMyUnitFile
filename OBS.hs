@@ -16,7 +16,7 @@ import qualified Text.XML.Light as X
 
 import Debug.Trace
 
-import Common.HTTP
+import Common.Http
 import Common.Types
 import Common.Functions
 
