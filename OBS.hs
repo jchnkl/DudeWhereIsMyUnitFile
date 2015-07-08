@@ -4,7 +4,9 @@ module OBS where
 
 import Data.Maybe
 import Control.Applicative
+import Control.Monad
 import Control.Monad.IO.Class
+import Control.Monad.Trans.Maybe
 import Control.Monad.Catch (Exception, MonadCatch)
 import Control.Monad.Except (MonadError)
 import qualified Data.ByteString.Char8 as B
@@ -17,6 +19,8 @@ import qualified Text.XML.Light as X
 import Common.Http (Auth)
 import qualified Common.Http as Http
 import Common.Types
+import Common.Functions (hoistMaybeT)
+import qualified Rpm as Rpm
 
 obsApiUrl :: Url
 obsApiUrl = "https://api.opensuse.org"
@@ -87,6 +91,13 @@ getRpmRoute auth pkg = (mkUrl =<<) . listToMaybe . filter p <$> findRpms auth pk
         prj <- getProject e
         fn  <- getFileName e
         return $ "/build/" ++ prj ++ "/" ++ repository ++ "/" ++ arch ++ "/" ++ pkg ++ "/" ++ fn
+
+getPkgFiles :: UserName -> Password -> PackageName -> IO (Maybe [FilePath])
+getPkgFiles user pass pkg = runMaybeT $ do
+    liftIO . Rpm.rpmFileList . url
+        =<< hoistMaybeT
+        =<< liftIO (getRpmRoute (Http.basicAuth user pass) pkg)
+    where url route = obsApiAuthUrl user pass </> route
 
 factoryPackages :: (Exception e, MonadCatch f, MonadError e f, MonadIO f, Functor f)
                 => UserName -> Password -> f [String]
