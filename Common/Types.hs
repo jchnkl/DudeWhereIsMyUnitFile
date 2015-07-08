@@ -7,6 +7,6 @@ type Password = String
 type ProjectName = String
 type PackageName = String
 
--- infixl 1 </>
+infixr 5 </>
 (</>) :: String -> String -> String
 (</>) s1 s2 = s1 ++ "/" ++ s2
