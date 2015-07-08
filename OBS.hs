@@ -90,7 +90,7 @@ getRpmRoute auth pkg = (mkUrl =<<) . listToMaybe . filter p <$> findRpms auth pk
     mkUrl e = do
         prj <- getProject e
         fn  <- getFileName e
-        return $ "/build/" ++ prj ++ "/" ++ repository ++ "/" ++ arch ++ "/" ++ pkg ++ "/" ++ fn
+        return $ "/build" </> prj </> repository </> arch </> pkg </> fn
 
 getPkgFiles :: UserName -> Password -> PackageName -> IO (Maybe [FilePath])
 getPkgFiles user pass pkg = runMaybeT $ do
