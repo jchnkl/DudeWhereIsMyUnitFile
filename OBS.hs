@@ -3,10 +3,10 @@
 module OBS where
 
 import Data.Maybe
-import Control.Monad
 import Control.Applicative
 import Control.Monad.IO.Class
-import Control.Monad.Trans.Maybe
+import Control.Monad.Catch (Exception, MonadCatch)
+import Control.Monad.Except (MonadError)
 import qualified Data.ByteString.Char8 as B
 
 import qualified Network.HTTP.Client as H
@@ -14,11 +14,9 @@ import qualified Network.HTTP.Client.TLS as T
 import Text.XML.Light.Types
 import qualified Text.XML.Light as X
 
-import Debug.Trace
-
-import Common.Http
+import Common.Http (Auth)
+import qualified Common.Http as Http
 import Common.Types
-import Common.Functions
 
 obsApiUrl :: Url
 obsApiUrl = "https://api.opensuse.org"
@@ -89,3 +87,21 @@ getRpmRoute auth pkg = (mkUrl =<<) . listToMaybe . filter pred <$> findRpms auth
         prj <- getProject e
         fn  <- getFileName e
         return $ "/build/" ++ prj ++ "/" ++ repository ++ "/" ++ arch ++ "/" ++ pkg ++ "/" ++ fn
+
+factoryPackages :: (Exception e, MonadCatch f, MonadError e f, MonadIO f, Functor f)
+                => UserName -> Password -> f [String]
+factoryPackages user pass = xml <$> Http.apiCall (Just auth) url
+    where
+    auth = Http.basicAuth user pass
+    url = obsApiUrl </> "source" </> "openSUSE:Factory"
+    xml = map X.attrVal -- Attr -> String
+        -- [Element] -> [[Attr]] -> [Attr]
+        . concatMap X.elAttribs
+        -- [Content] -> [Element]
+        . X.onlyElems
+        -- [Element] -> [[Content]] -> [Content]
+        . concatMap X.elContent
+        -- [Content] -> [Element]
+        . X.onlyElems
+        -- ByteString -> [Content]
+        . X.parseXML
