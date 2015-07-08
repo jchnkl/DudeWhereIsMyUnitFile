@@ -36,6 +36,7 @@ executable unit-disaster
                      , clock
                      , formatting
                      , old-locale
+                     , either
                      , exceptions
                      , mtl
                      , transformers
