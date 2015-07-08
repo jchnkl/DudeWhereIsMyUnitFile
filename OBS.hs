@@ -51,9 +51,9 @@ mkAttrKey k = QName k Nothing Nothing
 
 filterByAttr :: (Attr -> Bool) -> [Element] -> [Element]
 filterByAttr _ [] = []
-filterByAttr pred (e@(Element _ attrs _ _):elems)
-    | any pred attrs = e : filterByAttr pred elems
-    | otherwise      = filterByAttr pred elems
+filterByAttr p (e@(Element _ attrs _ _):elems)
+    | any p attrs = e : filterByAttr p elems
+    | otherwise   = filterByAttr p elems
 
 findRpms :: Auth -> PackageName -> IO [Element]
 findRpms auth pkg = H.withManager T.tlsManagerSettings $ \manager -> do
@@ -78,11 +78,11 @@ getProject :: Element -> Maybe ProjectName
 getProject = X.findAttr (mkAttrKey "project")
 
 getRpmRoute :: Auth -> PackageName -> IO (Maybe Route)
-getRpmRoute auth pkg = (mkUrl =<<) . listToMaybe . filter pred <$> findRpms auth pkg
+getRpmRoute auth pkg = (mkUrl =<<) . listToMaybe . filter p <$> findRpms auth pkg
     where
     arch = "x86_64"
     repository = "openSUSE_Factory"
-    pred e = isArch arch e && isRepository repository e
+    p e = isArch arch e && isRepository repository e
     mkUrl e = do
         prj <- getProject e
         fn  <- getFileName e
