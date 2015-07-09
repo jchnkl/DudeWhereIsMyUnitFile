@@ -109,10 +109,21 @@ findPkgsWithUnitFiles base = do
 main :: IO ()
 main = do
     args <- getArgs
+    let pkg = (args !! 0)
 
-    let base = (args !! 0)
+    -- putStrLn . unlines =<<
+    --     Tar.foldEntries ((:) . Tar.entryPath) [] (const []) <$> unpack pkg
 
-    map (base </>) <$> Tar.getDirectoryContentsRecursive base
-        >>= filterM (isSmallerThan (fromIntegral maxSize * 1024 * 1024))
-        >>= findPackages matchUnitFiles
-        >>= mapM_ (IO.hPutStrLn IO.stderr)
+    print =<<
+        hasUnitFiles . Tar.foldEntries ((:) . Tar.entryPath) [] (const []) <$> unpack pkg
+
+-- main :: IO ()
+-- main = do
+--     args <- getArgs
+--
+--     let base = (args !! 0)
+--
+--     map (base </>) <$> Tar.getDirectoryContentsRecursive base
+--         >>= filterM (isSmallerThan (fromIntegral maxSize * 1024 * 1024))
+--         >>= findPackages matchUnitFiles
+--         >>= mapM_ (IO.hPutStrLn IO.stderr)
