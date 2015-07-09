@@ -8,7 +8,6 @@
 module ArchPkgReader where
 
 import System.Environment (getArgs)
-import System.FilePath.Posix ((</>))
 import System.Posix.Types (FileOffset)
 import System.Posix.Files (getFileStatus, fileSize)
 import qualified System.IO as IO
@@ -37,6 +36,7 @@ import qualified Codec.Archive.Tar as Tar
 import Codec.Archive.Tar.Entry (Entry(..))
 import qualified Codec.Archive.Tar.Entry as Tar
 
+import Common.Functions
 -- import Debug.Trace
 
 readLzma :: (MonadBaseControl IO m, MonadIO m, MonadThrow m)
