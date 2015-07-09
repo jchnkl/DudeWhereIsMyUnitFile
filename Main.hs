@@ -13,7 +13,6 @@ import qualified Data.List as L
 import qualified Data.HashSet as S
 import qualified System.IO as IO
 import System.Environment (getArgs)
-import System.FilePath.Posix ((</>))
 import qualified System.Directory as D
 
 import Formatting
@@ -22,7 +21,7 @@ import System.Clock (Clock(..), TimeSpec(..))
 import qualified System.Clock as C
 
 import Common.Http
-import Common.Types hiding ((</>))
+import Common.Types
 import Common.Functions
 import qualified Rpm as R
 -- import OBS (UserName, Password, PackageName)

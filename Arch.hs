@@ -24,6 +24,7 @@ import Data.Aeson.TH
 import Data.Time.Clock (UTCTime)
 
 import Common.Types
+import Common.Functions
 
 data Repository = Core
                 | Extra

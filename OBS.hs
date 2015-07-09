@@ -19,7 +19,7 @@ import qualified Text.XML.Light as X
 import Common.Http (Auth)
 import qualified Common.Http as Http
 import Common.Types
-import Common.Functions (hoistMaybeT)
+import Common.Functions
 import qualified Rpm as Rpm
 
 obsApiUrl :: Url
