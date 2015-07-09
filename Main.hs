@@ -87,16 +87,6 @@ getPackageList :: Source -> IO [String]
 getPackageList = \case
     SourcePath fp -> D.getDirectoryContents fp
 
-    -- p_pkgs <- S.fromList <$> packagesPkgs
-    -- s_pkgs <- S.fromList <$> susePkgs
-    -- return $ c_pkgs `S.union` p_pkgs `S.union` s_pkgs
-
--- getPackages :: IO (S.HashSet Pkg)
--- getPackages = do
---     c_pkgs <- S.fromList <$> communityPkgs
---     p_pkgs <- S.fromList <$> packagesPkgs
---     s_pkgs <- S.fromList <$> susePkgs
---     return $ c_pkgs `S.union` p_pkgs `S.union` s_pkgs
 
 filterWithServiceFile :: [Pkg] -> IO [Pkg]
 filterWithServiceFile = filterM hasServiceFile
@@ -131,37 +121,22 @@ main = do
     guard $ length args == 2
     let username = args !! 0
         password = args !! 1
-    --     -- package  = args !! 2
 
-    -- susePkgs <- getPackageList (SourcePath s_pkg_path)
-
-    -- O.getRpmRoute (O.basicAuth username password) package >>= \case
-    --     Nothing    -> print $ "Couldn't find rpm for " ++ package
-    --     Just route -> let url = O.obsApiAuthUrl username password ++ "/" ++ route
-    --                   in R.rpmFileList url >>= putStrLn . unlines
 
     susePkgs <- getPackageList (SourcePath s_pkg_path)
     let npkgs = fromIntegral $ length susePkgs
     putStrLn $ "got " ++ show npkgs ++ " packages.."
 
-    -- pkgs <- getPackageList (SourcePath s_pkg_path) >>= mapM archSearch
-    -- print $ length pkgs
-
-    -- putStr "\n"
 
     startTime <- C.getTime Monotonic
 
     flip runStateT 0 $ do
         forM_ (zip [1..] susePkgs) $ \(n, pkg) -> do
 
-            -- (mr, d) <- fmap floatTime <$> measureDuration Monotonic (archSearch pkg)
             (mr, d) <- fmap floatTime <$> measureDuration Monotonic (hasUnitFiles pkg)
+
             modify (+d)
             avg <- gets (/n)
-
-            -- when (isJust mr) $ do
-            --     files <- rpmPkgFileList username password pkg
-            --     filter (isSuffixOf ".service") files
 
             now <- liftIO $ C.getTime Monotonic
 
@@ -171,36 +146,14 @@ main = do
 
             putStrStatus $ wrapParens ps ++ " " ++ status pkg (mr, d)
 
-                -- ps = "avg: " ++ show avg ++ "s"
-                --   ++ ", pkgs left: " ++ show (npkgs - n)
-                --   -- ++ ", time left: ~" ++ show tl ++ "s"
-                --   ++ ", time left: " ++ ppTimeSpec tl
-
-            -- O.getRpmRoute (O.basicAuth username password) package >>= \case
-            --     Nothing    -> print $ "Couldn't find rpm for " ++ package
-            --     Just route -> let url = O.obsApiAuthUrl username password ++ "/" ++ route
-            --                   in R.rpmFileList url >>= putStrLn . unlines
-
-
     putStr "\n"
-
-    -- O.getRpmRoute (O.basicAuth username password) package >>= \case
-    --     Nothing    -> print $ "Couldn't find rpm for " ++ package
-    --     Just route -> let url = O.obsApiAuthUrl username password ++ "/" ++ route
-    --                   in R.rpmFileList url >>= putStrLn . unlines
 
     where
     wrapParens s = "(" ++ s ++ ")"
 
-    -- status pkg (mr, d) = case (map A.pkg_pkgname . A.searchReply_results <$> mr) of
-    --     Nothing   -> "no pkgs found for " ++ pkg
-    --     Just []   -> "no pkgs found for " ++ pkg
-    --     Just pkgs -> "found " ++ show pkgs ++ " in " ++ show d ++ "s"
-
     status pkg (mr, d) | mr        = pkg ++ " has unit files\n"
                        | otherwise = pkg ++ " has NO unit files"
 
-    -- archSearch n = A.search $ A.Exact n [A.Architecture A.X86_64]
     archSearch n = A.search $ A.Exact n [A.Architecture A.X86_64]
 
     packageNames n = fmap (map A.pkg_pkgname . A.searchReply_results)
@@ -214,14 +167,6 @@ main = do
 
     hasUnitFiles = fmap (not . null) . unitFiles
 
-
-    -- hasUnitFiles n = fmap isJust . runMaybeT $ do
-    --     fmap (A.searchReply_results) search n
-    --         >>= hoistMaybeT
-    --         >>= mapM ((hoistMaybeT =<<) . A.files A.Core A.Architecture)
-
-    -- search :: (Functor m, MonadIO m) => Search -> m (Maybe SearchReply)
-    -- files :: (Functor m, MonadIO m) => Repository -> Architecture -> PackageName -> m (Maybe FilesReply)
 
 isUnitFile :: FilePath -> Bool
 isUnitFile = L.isSuffixOf ".service"
