@@ -1,9 +1,12 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 module Common.Http where
 
 import Data.Maybe
 import Data.Either.Combinators (eitherToError)
 import Control.Applicative
 import Control.Monad.Catch (Exception, MonadCatch, MonadThrow, try)
+import Control.Monad.Reader
 import Control.Monad.Except
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as B
@@ -14,7 +17,16 @@ import qualified Network.HTTP.Client.TLS as T
 
 import Common.Types
 
+data Cred = Cred
+    { username :: String
+    , password :: String
+    }
+    deriving (Eq, Ord, Read, Show)
+
 type Auth = Request -> Request
+
+basicAuthM :: MonadReader Cred m => m Auth
+basicAuthM = asks $ \c -> H.applyBasicAuth (B.pack $ username c) (B.pack $ password c)
 
 basicAuth :: UserName -> Password -> Auth
 basicAuth u p = H.applyBasicAuth (B.pack u) (B.pack p)
