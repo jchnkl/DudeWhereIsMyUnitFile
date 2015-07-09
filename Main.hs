@@ -1,18 +1,22 @@
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-import Data.Maybe (isJust, fromMaybe)
+import Data.Maybe (isJust, isNothing, fromMaybe, maybeToList)
 import Control.Monad
 import Control.Applicative
 import Control.Concurrent
+import Control.Monad.Reader
 import Control.Monad.IO.Class
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Maybe
+import qualified Data.ByteString.Char8 as B
 import Data.Hashable (Hashable(..))
 import qualified Data.List as L
 import qualified Data.HashSet as S
 import qualified System.IO as IO
-import System.Environment (getArgs)
+import System.Environment (getArgs, getProgName)
 import qualified System.Directory as D
 
 import Formatting
@@ -26,15 +30,25 @@ import Common.Functions
 import qualified Rpm as R
 -- import OBS (UserName, Password, PackageName)
 import qualified OBS as O
-import Arch (Search(..), Param(..))
+import Arch (Search(..), Param(..), Architecture(..), Repository(..))
 import qualified Arch as A
+import qualified ArchPkgReader as APR
 
 type PkgName = String
 type PkgPath = FilePath
 
+type AppMonad m = (Functor m, MonadReader Cred m, MonadIO m)
+
 data Pkg = Pkg
     { name :: PkgName
     , path :: PkgPath
+    }
+    deriving (Eq, Ord, Read, Show)
+
+data Args = Args
+    { user    :: String
+    , passwd  :: String
+    , outFile :: Maybe String
     }
     deriving (Eq, Ord, Read, Show)
 
@@ -87,9 +101,10 @@ getPackageList :: Source -> IO [String]
 getPackageList = \case
     SourcePath fp -> D.getDirectoryContents fp
 
-
-filterWithServiceFile :: [Pkg] -> IO [Pkg]
-filterWithServiceFile = filterM hasServiceFile
+whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
+whenJust ma f = case ma of
+    Nothing -> return ()
+    Just a  -> f a
 
 measureDuration :: MonadIO m => Clock -> m a -> m (a, TimeSpec)
 measureDuration c m = do
@@ -102,10 +117,14 @@ measureDuration c m = do
 floatTime :: TimeSpec -> Float
 floatTime (TimeSpec s n) = fromIntegral s + fromIntegral n / 10^9
 
-whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
-whenJust ma f = case ma of
-    Nothing -> return ()
-    Just a  -> f a
+ppFloatTime :: Float -> String
+ppFloatTime ft = formatToString
+                 (left 2 '0' % ":" % left 2 '0' % ":" % left 2 '0')
+                 (show hours) (show mins) (show secs)
+    where
+    (hours, minfrac) = properFraction (ft / 3600)
+    (mins, secfrac)  = properFraction (minfrac * 60)
+    secs             = round $ secfrac * 60
 
 putStrStatus :: MonadIO m => String -> m ()
 putStrStatus s = liftIO $ do
@@ -115,76 +134,63 @@ putStrStatus s = liftIO $ do
     IO.hPutStr IO.stdout $ "\r\ESC[K" ++ s
     IO.hFlush IO.stdout
 
+getArchFiles :: AppMonad m => PackageName -> m [FilePath]
+getArchFiles pkg = toFileList <$> A.files Core X86_64 pkg
+    where toFileList = concat . maybeToList . fmap A.filesReply_files
+
+getSuseFiles :: AppMonad m => PackageName -> m [FilePath]
+getSuseFiles pkg = concat . maybeToList <$> O.getPkgFiles pkg
+
+parseArgs :: [String] -> Maybe Args
+parseArgs args | length args == 2 = Just $ Args (args !! 0) (args !! 1) Nothing
+               | length args == 3 = Just $ Args (args !! 0) (args !! 1) (Just $ args !! 2)
+               | otherwise        = Nothing
+
+usage :: Maybe () -> IO ()
+usage m = when (isNothing m) $ do
+    getProgName >>= putStrLn . (++ " <username> <password> [<output file>]")
+
 main :: IO ()
-main = do
-    args <- getArgs
-    guard $ length args == 2
-    let username = args !! 0
-        password = args !! 1
+main = usage <=< runMaybeT $ do
+    args <- hoistMaybeT =<< parseArgs <$> liftIO getArgs
+    let cred = Cred (user args) (passwd args)
 
+    susePkgs <- O.factoryPackages (user args) (passwd args)
 
-    susePkgs <- getPackageList (SourcePath s_pkg_path)
-    let npkgs = fromIntegral $ length susePkgs
-    putStrLn $ "got " ++ show npkgs ++ " packages.."
+    liftIO . putStrLn $ "got " ++ show (length susePkgs) ++ " packages.."
 
+    startTime <- liftIO $ C.getTime Monotonic
 
-    startTime <- C.getTime Monotonic
+    flip runReaderT cred $ flip runStateT 0 $ do
+        forM_ (zip [1::Int ..] susePkgs) $ \(n, pkg) -> do
 
-    flip runStateT 0 $ do
-        forM_ (zip [1..] susePkgs) $ \(n, pkg) -> do
-
-            (mr, d) <- fmap floatTime <$> measureDuration Monotonic (hasUnitFiles pkg)
+            (needUnits, d) <- fmap (floatTime <$>) . measureDuration Monotonic $ do
+                archHasUnitFiles <- hasUnitFiles <$> getArchFiles pkg
+                if archHasUnitFiles
+                    then not . hasUnitFiles <$> getSuseFiles pkg
+                    else return False
 
             modify (+d)
-            avg <- gets (/n)
+            avg <- gets (/ fromIntegral n)
 
             now <- liftIO $ C.getTime Monotonic
 
-            let tl = ppFloatTime $ (npkgs - n) * avg
+            let tl = ppFloatTime $ fromIntegral (length susePkgs - n) * avg
                 el = ppFloatTime $ floatTime (now - startTime)
-                ps = "time elapsed: " ++ el ++ ", time left: " ++ tl
+                ps = "avg per pkg: " ++ show avg ++ "s"
+                  ++ ", elapsed: " ++ el
+                  ++ ", left: " ++ tl
 
-            putStrStatus $ wrapParens ps ++ " " ++ status pkg (mr, d)
+            putStrStatus $ show n ++ "/" ++ show (length susePkgs) ++ ", " ++ ps
 
-    putStr "\n"
+            when needUnits . liftIO $ printPkgInfo pkg (outFile args)
+
+    liftIO $ putStr "\n"
 
     where
     wrapParens s = "(" ++ s ++ ")"
+    showNeedUnits b = (if b then "needs" else "doesn't need") ++ " unit files"
 
-    status pkg (mr, d) | mr        = pkg ++ " has unit files\n"
-                       | otherwise = pkg ++ " has NO unit files"
-
-    archSearch n = A.search $ A.Exact n [A.Architecture A.X86_64]
-
-    packageNames n = fmap (map A.pkg_pkgname . A.searchReply_results)
-                     <$> A.search (A.Exact n [A.Architecture A.X86_64])
-
-    packageFiles n = fmap A.filesReply_files
-                     <$> A.files A.Core A.X86_64 n
-
-    unitFiles n = fmap (filter isUnitFile . concat . fromMaybe []) . runMaybeT $ do
-        packageNames n >>= hoistMaybeT >>= mapM ((hoistMaybeT =<<) . packageFiles)
-
-    hasUnitFiles = fmap (not . null) . unitFiles
-
-
-isUnitFile :: FilePath -> Bool
-isUnitFile = L.isSuffixOf ".service"
-
-rpmPkgFileList :: UserName -> Password -> PackageName -> IO [String]
-rpmPkgFileList user pass pkg = O.getRpmRoute auth pkg >>= fileList . fmap makeUrl
-    where
-    fileList murl = case murl of
-        Nothing  -> return []
-        Just url -> R.rpmFileList url
-    auth = basicAuth user pass
-    makeUrl route = O.obsApiAuthUrl user pass ++ "/" ++ route
-
-ppFloatTime :: Float -> String
-ppFloatTime ft = formatToString
-                 (left 2 '0' % ":" % left 2 '0' % ":" % left 2 '0')
-                 (show hours) (show mins) (show secs)
-    where
-    (hours, minfrac) = properFraction (ft / 3600)
-    (mins, secfrac)  = properFraction (minfrac * 60)
-    secs             = round $ secfrac * 60
+    printPkgInfo pkg = \case
+        Nothing -> IO.hPutStr IO.stdout (pkg ++ "\n") >> IO.hFlush IO.stdout
+        Just fp -> B.appendFile fp (B.pack $ pkg ++ "\n")
