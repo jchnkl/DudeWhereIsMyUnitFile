@@ -47,12 +47,12 @@ readLzma fp = runResourceT $ Cmb.sourceFile fp $= decompress Nothing $$ Cmb.sink
 --                => FilePath -> m (Entries FormatError)
 -- readPkgEntries = fmap Tar.read . readLzma
 
-isUnitFile :: Entry -> Bool
-isUnitFile fp = isPrefixOf "usr/lib/systemd" p && isSuffixOf ".service" p
+isUnitEntry :: Entry -> Bool
+isUnitEntry fp = isPrefixOf "usr/lib/systemd" p && isSuffixOf ".service" p
     where p = Tar.entryPath fp
 
 -- hasUnitFiles :: FilePath -> IO Bool
--- hasUnitFiles = fmap (foldr (||) False . map isUnitFile . toEntryList) . readPkgEntries
+-- hasUnitFiles = fmap (foldr (||) False . map isUnitEntry . toEntryList) . readPkgEntries
 
 isTar :: FilePath -> Bool
 isTar = isSuffixOf ".tar"
@@ -72,8 +72,8 @@ maxSize = 1
 isSmallerThan :: FileOffset -> FilePath -> IO Bool
 isSmallerThan n = fmap ((n >) . fileSize) . getFileStatus
 
--- isUnitFile :: Entry -> Bool
--- isUnitFile = Tar.entryPath
+-- isUnitEntry :: Entry -> Bool
+-- isUnitEntry = Tar.entryPath
 
 -- unitFileCheck :: FilePath -> IO Bool
 -- unitFileCheck fp = isSmallerThan (fromIntegral maxSize * 1024 * 1024) fp >>= \b -> do
@@ -98,7 +98,7 @@ findPackages f = findpkg []
 matchUnitFiles :: Entries FormatError -> IO Bool
 matchUnitFiles = return
                . foldr (||) False
-               . Tar.foldEntries ((:) . isUnitFile) [] (const [])
+               . Tar.foldEntries ((:) . isUnitEntry) [] (const [])
 
 findPkgsWithUnitFiles :: FilePath -> IO [FilePath]
 findPkgsWithUnitFiles base = do
