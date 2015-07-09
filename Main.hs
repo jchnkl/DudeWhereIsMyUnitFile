@@ -114,8 +114,8 @@ measureDuration c m = do
     -- return (a, TimeSpec (C.sec end - C.sec start) (C.nsec end - C.nsec start))
     return (a, end - start)
 
-floatTime :: TimeSpec -> Float
-floatTime (TimeSpec s n) = fromIntegral s + fromIntegral n / 10^9
+toFloatTime :: TimeSpec -> Float
+toFloatTime (TimeSpec s n) = fromIntegral s + fromIntegral n / 10^9
 
 ppFloatTime :: Float -> String
 ppFloatTime ft = formatToString
@@ -164,7 +164,7 @@ main = usage <=< runMaybeT $ do
     flip runReaderT cred $ flip runStateT 0 $ do
         forM_ (zip [1::Int ..] susePkgs) $ \(n, pkg) -> do
 
-            (needUnits, d) <- fmap (floatTime <$>) . measureDuration Monotonic $ do
+            (needUnits, d) <- fmap (toFloatTime <$>) . measureDuration Monotonic $ do
                 archHasUnitFiles <- hasUnitFiles <$> getArchFiles pkg
                 if archHasUnitFiles
                     then not . hasUnitFiles <$> getSuseFiles pkg
@@ -176,7 +176,7 @@ main = usage <=< runMaybeT $ do
             now <- liftIO $ C.getTime Monotonic
 
             let tl = ppFloatTime $ fromIntegral (length susePkgs - n) * avg
-                el = ppFloatTime $ floatTime (now - startTime)
+                el = ppFloatTime $ toFloatTime (now - startTime)
                 ps = "avg per pkg: " ++ show avg ++ "s"
                   ++ ", elapsed: " ++ el
                   ++ ", left: " ++ tl
