@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module OBS where
@@ -7,6 +8,7 @@ import Control.Applicative
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Maybe
+import Control.Monad.Reader
 import Control.Monad.Catch (Exception, MonadCatch)
 import Control.Monad.Except (MonadError)
 import qualified Data.ByteString.Char8 as B
@@ -16,7 +18,7 @@ import qualified Network.HTTP.Client.TLS as T
 import Text.XML.Light.Types
 import qualified Text.XML.Light as X
 
-import Common.Http (Auth)
+import Common.Http (Cred(..), Auth)
 import qualified Common.Http as Http
 import Common.Types
 import Common.Functions
@@ -59,10 +61,11 @@ filterByAttr p (e@(Element _ attrs _ _):elems)
     | any p attrs = e : filterByAttr p elems
     | otherwise   = filterByAttr p elems
 
-findRpms :: Auth -> PackageName -> IO [Element]
-findRpms auth pkg = H.withManager T.tlsManagerSettings $ \manager -> do
-    auth <$> H.parseUrl url >>= \request -> do
-        H.withResponse request manager process
+findRpms :: (MonadReader Cred m, MonadIO m) => PackageName -> m [Element]
+findRpms pkg = Http.basicAuthM >>= \auth -> liftIO $ do
+   H.withManager T.tlsManagerSettings $ \manager -> do
+        auth <$> H.parseUrl url >>= \request -> do
+            H.withResponse request manager process
     where
     url = obsApiUrl ++ "/search/published/binary/id?match=@name='" ++ pkg ++ "'"
     collectionElements = concatMap (X.onlyElems . elContent) . X.onlyElems
@@ -81,8 +84,9 @@ getFileName = X.findAttr (mkAttrKey "filename")
 getProject :: Element -> Maybe ProjectName
 getProject = X.findAttr (mkAttrKey "project")
 
-getRpmRoute :: Auth -> PackageName -> IO (Maybe Route)
-getRpmRoute auth pkg = (mkUrl =<<) . listToMaybe . filter p <$> findRpms auth pkg
+getRpmRoute :: (Functor m, MonadReader Cred m, MonadIO m)
+            => PackageName -> m (Maybe Route)
+getRpmRoute pkg = (mkUrl =<<) . listToMaybe . filter p <$> findRpms pkg
     where
     arch = "x86_64"
     repository = "openSUSE_Factory"
@@ -92,12 +96,13 @@ getRpmRoute auth pkg = (mkUrl =<<) . listToMaybe . filter p <$> findRpms auth pk
         fn  <- getFileName e
         return $ "/build" </> prj </> repository </> arch </> pkg </> fn
 
-getPkgFiles :: UserName -> Password -> PackageName -> IO (Maybe [FilePath])
-getPkgFiles user pass pkg = runMaybeT $ do
-    liftIO . Rpm.rpmFileList . url
+getPkgFiles :: (Functor m, MonadReader Cred m, MonadIO m)
+            => PackageName -> m (Maybe [FilePath])
+getPkgFiles pkg = ask >>= \cred -> runMaybeT $ do
+    liftIO . Rpm.rpmFileList . url cred
         =<< hoistMaybeT
-        =<< liftIO (getRpmRoute (Http.basicAuth user pass) pkg)
-    where url route = obsApiAuthUrl user pass </> route
+        =<< getRpmRoute pkg
+    where url c route = obsApiAuthUrl (username c) (password c) </> route
 
 factoryPackages :: (Exception e, MonadCatch f, MonadError e f, MonadIO f, Functor f)
                 => UserName -> Password -> f [String]
