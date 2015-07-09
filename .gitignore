@@ -1,0 +1,5 @@
+.*.sw[op]
+*.o
+*.hi
+cabal.sandbox.config
+Rpm.hs
